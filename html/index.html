@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eclear — Rich Text Sanitizer & Markdown to HTML Converter</title>
+<meta name="description" content="Free browser-based rich text sanitizer. Paste messy content from Word, Google Docs, VS Code, or dark-themed editors — eclear strips dark themes, inline styles, and junk markup. Copy clean HTML in one keystroke. 100% client-side, no server, no tracking.">
+<meta name="keywords" content="rich text sanitizer, HTML cleaner, markdown to HTML converter, dark theme stripper, clipboard cleaner, Word HTML cleanup, Google Docs cleanup, Mermaid diagram to PNG, paste and copy, client-side text sanitizer, email paste formatter">
+<meta name="author" content="Codyssey">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b1020">
+<meta property="og:type" content="website">
+<meta property="og:title" content="eclear — Rich Text Sanitizer & Markdown Converter">
+<meta property="og:description" content="Paste messy content from Word, Google Docs, VS Code, or dark themes. eclear strips junk markup and copies clean rich text in one keystroke. 100% client-side, no server.">
+<meta property="og:site_name" content="eclear">
+<meta property="og:url" content="https://github.com/codyssey-ltd/eclear">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="eclear — Rich Text Sanitizer & Markdown Converter">
+<meta name="twitter:description" content="Paste. Copy. Done. — Clean rich text from dark themes, Word, and web pages in one keystroke. 100% client-side.">
+<link rel="canonical" href="https://codyssey-ltd.github.io/eclear/">
+<style>
+  /* Dark theme — default on page load */
+  :root {
+    --bg: #0b1020;
+    --surface: #121a2e;
+    --surface-2: #1a2540;
+    --border: rgba(255,255,255,0.06);
+    --border-focus: rgba(147,197,253,0.35);
+    --text: #dbeafe;
+    --text-dim: #6b8ab8;
+    --text-muted: #2a3a55;
+    --accent: #93c5fd;
+    --accent-soft: rgba(147,197,253,0.07);
+    --accent-glow: rgba(147,197,253,0.15);
+    --success: #34d399;
+    --success-soft: rgba(52,211,153,0.1);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Light theme — applied after paste/conversion */
+  :root.theme-light {
+    --bg: #f0f5ff;
+    --surface: #ffffff;
+    --surface-2: #e8eef9;
+    --border: rgba(0,0,0,0.06);
+    --border-focus: rgba(59,130,246,0.3);
+    --text: #1e3a5f;
+    --text-dim: #5b7fa8;
+    --text-muted: #93b4d4;
+    --accent: #3b82f6;
+    --accent-soft: rgba(59,130,246,0.07);
+    --accent-glow: rgba(59,130,246,0.1);
+    --success-soft: rgba(52,211,153,0.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Theme transitions — scoped to palette only to avoid document-wide repaint storms */
+  .palette, .editor, .statusbar, .topbar, .toast { transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+
+  .app { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+
+  .palette {
+    width: 100%; max-width: 620px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 1px rgba(147,197,253,0.02), 0 4px 24px rgba(0,0,0,0.3), 0 0 80px rgba(147,197,253,0.03);
+    overflow: hidden;
+    transition: box-shadow var(--transition), border-color var(--transition), max-width 0.3s ease;
+    will-change: box-shadow, border-color;
+  }
+  .palette:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 1px rgba(147,197,253,0.06), 0 4px 24px rgba(0,0,0,0.3), 0 0 80px var(--accent-glow); }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .brand { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); }
+  .brand em { font-style: normal; color: var(--accent); }
+  .shortcuts { display: flex; gap: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
+  .shortcuts kbd { font-family: var(--mono); font-size: 0.65rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0.1em 0.4em; margin-right: 0.3rem; color: var(--text-dim); }
+  .shortcut-btn { display: inline-flex; align-items: center; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 5px; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; user-select: none; }
+  .shortcut-btn:hover { background: var(--surface-2); border-color: var(--border); }
+  .shortcut-btn:active { background: var(--accent-soft); }
+
+  .editor { min-height: 300px; max-height: 60vh; padding: 1.5rem 1.75rem; outline: none; overflow-y: auto; font-size: 0.92rem; line-height: 1.7; color: var(--text); }
+  .editor:empty::before { content: "Paste rich text here — it will be cleaned automatically"; color: var(--text-muted); pointer-events: none; }
+
+  .editor h1, .editor h2, .editor h3, .editor h4, .editor h5, .editor h6 { margin: 0.8em 0 0.35em; font-weight: 600; line-height: 1.3; color: var(--text); }
+  .editor h1 { font-size: 1.4em; }
+  .editor h2 { font-size: 1.2em; }
+  .editor h3 { font-size: 1.1em; }
+  .editor p { margin: 0.4em 0; }
+  .editor ul, .editor ol { margin: 0.4em 0; padding-left: 1.4em; }
+  .editor li { margin: 0.15em 0; }
+  .editor ul li::marker, .editor ol li::marker { color: var(--accent); }
+  .editor a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .editor code { font-family: var(--mono); font-size: 0.85em; background: var(--accent-soft); padding: 0.1em 0.35em; border-radius: 4px; }
+  .editor pre { font-family: var(--mono); font-size: 0.85em; background: var(--surface-2); padding: 0.8rem 1rem; border-radius: var(--radius-sm); overflow-x: auto; margin: 0.6em 0; }
+  .editor pre code { background: none; padding: 0; }
+  .editor blockquote { border-left: 2px solid var(--accent); padding-left: 1rem; margin: 0.6em 0; color: var(--text-dim); font-style: italic; }
+  .editor hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
+  .editor img { max-width: 100%; height: auto; border-radius: var(--radius-sm); margin: 0.4em 0; }
+  .editor s, .editor del { color: var(--text-dim); }
+  .editor mark { background: var(--accent-soft); color: var(--text); padding: 0.05em 0.2em; border-radius: 3px; }
+
+  /* Table auto-formatting */
+  .editor table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.88em; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .editor thead { background: var(--accent-soft); }
+  .editor th { color: var(--text); font-weight: 600; text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border-focus); }
+  .editor td { padding: 0.45rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); }
+  .editor tbody tr:last-child td { border-bottom: none; }
+  .editor tbody tr:nth-child(even) { background: var(--accent-soft); }
+  .editor caption { padding: 0.4rem; color: var(--text-dim); font-size: 0.85em; }
+
+  .statusbar { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface-2); }
+  .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--text-dim); transition: color var(--transition); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); transition: all var(--transition); }
+  .status-indicator.active .status-dot { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .status-indicator.active { color: var(--success); }
+  .status-indicator.copied .status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-indicator.copied { color: var(--accent); }
+  .char-count { font-size: 0.7rem; font-family: var(--mono); color: var(--text-muted); }
+
+  /* Width controls — positioned by JS to align with status bar, fixed to viewport */
+  .width-controls { position: fixed; display: flex; align-items: center; gap: 0; z-index: 90; transform: translate(-50%, -50%); opacity: 0; transition: opacity 3s ease; }
+  .width-controls.ready { opacity: 1; }
+  .width-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; color: var(--text-dim); transition: all var(--transition); user-select: none; line-height: 1; padding: 0; font-family: var(--mono); }
+  .width-btn:hover { border-color: var(--border-focus); color: var(--accent); background: var(--accent-soft); }
+  .width-btn:active { transform: scale(0.92); }
+  .width-label { font-size: 0.65rem; font-family: var(--mono); color: var(--text-muted); min-width: 4em; text-align: center; user-select: none; padding: 0 0.5rem; }
+
+  .editor::-webkit-scrollbar { width: 6px; }
+  .editor::-webkit-scrollbar-track { background: transparent; }
+  .editor::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .palette { animation: fadeIn 0.3s ease-out; }
+
+  .toast { display: none; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--accent); white-space: nowrap; }
+  .toast.show { display: inline-flex; }
+  .toast.show ~ #status-text { display: none; }
+
+  /* Prevent visible selection flash during copy — the async API copies
+     without selection; the legacy path uses an off-screen element. */
+  .editor::selection, .editor ::selection { background: transparent; color: inherit; }
+
+  /* Keyboard shortcut help overlay */
+  .help-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 200; }
+  .help-overlay.show { display: flex; }
+  .help-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem 2rem; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .help-card h3 { font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 1rem; }
+  .help-card table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .help-card td { padding: 0.4rem 0; border-bottom: 1px solid var(--border); color: var(--text); }
+  .help-card td:first-child { width: 40%; color: var(--text-dim); }
+  .help-card kbd { font-family: var(--mono); font-size: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0.1em 0.4em; color: var(--text-dim); }
+  .help-card .help-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem; text-align: center; }
+
+  /* Mermaid error indicator */
+  @keyframes errorBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .error-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; cursor: pointer; animation: errorBlink 1s ease-in-out infinite; flex-shrink: 0; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+  .error-dot:hover { box-shadow: 0 0 10px rgba(239,68,68,0.7); }
+
+  /* Error popup overlay */
+  .error-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 210; }
+  .error-overlay.show { display: flex; }
+  .error-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem 2rem; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .error-card h3 { font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 1rem; }
+  .error-list { overflow-y: auto; flex: 1; margin-bottom: 1rem; }
+  .error-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 0.6rem; background: var(--surface-2); }
+  .error-item-code { font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim); white-space: pre-wrap; word-break: break-word; max-height: 6em; overflow: hidden; position: relative; margin-bottom: 0.5rem; }
+  .error-item-code.expanded { max-height: none; }
+  .error-item-code .show-full { position: absolute; bottom: 0; right: 0; background: var(--surface-2); padding: 0 0.3rem; font-size: 0.7rem; color: var(--accent); cursor: pointer; }
+  .error-item-msg { font-size: 0.8rem; color: #ef4444; }
+  .error-dismiss { align-self: flex-end; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem 1.2rem; font-size: 0.8rem; color: var(--text-dim); cursor: pointer; transition: all var(--transition); }
+  .error-dismiss:hover { border-color: var(--border-focus); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="palette">
+    <div class="topbar">
+      <div class="brand">e<em>clear</em></div>
+      <div class="shortcuts">
+        <span class="shortcut-btn" id="btnCopy" title="Copy as rich text (Ctrl+C)"><kbd>⌘C</kbd>copy</span>
+        <span class="shortcut-btn" id="btnMd" title="Copy as Markdown (Ctrl+Shift+M)"><kbd>⌘⇧M</kbd>md</span>
+        <span class="shortcut-btn" id="btnCleanCopy" title="Re-clean and copy (Ctrl+Enter)"><kbd>⌘⏎</kbd>clean+copy</span>
+        <span class="shortcut-btn" id="btnHelp" title="Show keyboard shortcuts (?)"><kbd>?</kbd>help</span>
+      </div>
+    </div>
+    <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+    <div class="statusbar">
+      <div class="status-indicator" id="status">
+        <span class="status-dot"></span>
+        <span class="error-dot" id="errorDot" style="display:none;" title="Mermaid render errors — click for details"></span>
+        <div class="toast" id="toast"><span class="toast-icon">✓</span> <span id="toast-text">Copied!</span></div>
+        <span id="status-text">Ready — paste to begin</span>
+      </div>
+      <div class="char-count" id="charCount"><span id="wordCount">0 words</span> · <span id="charOnly">0 chars</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="width-controls">
+  <button class="width-btn" id="widthDec" title="Decrease width (←)">&lt;</button>
+  <span class="width-label" id="widthLabel">620px</span>
+  <button class="width-btn" id="widthInc" title="Increase width (→)">&gt;</button>
+</div>
+
+<div class="help-overlay" id="helpOverlay">
+  <div class="help-card">
+    <h3>Keyboard Shortcuts</h3>
+    <table>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste content</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy as rich text (HTML)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Copy as Markdown</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Re-clean and copy</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Decrease / increase width</td></tr>
+      <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Close this dialog</td></tr>
+    </table>
+    <div class="help-hint">Drop .txt, .md, or .html files anywhere to process them</div>
+  </div>
+</div>
+
+<div class="error-overlay" id="errorOverlay">
+  <div class="error-card">
+    <h3 id="errorTitle">Mermaid Rendering Errors</h3>
+    <div class="error-list" id="errorList"></div>
+    <button class="error-dismiss" id="errorDismiss">Dismiss</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════
+   eclear — rich text sanitizer + markdown converter + HTML renderer
+   ════════════════════════════════════════════════════════════════ */
+
+const editor    = document.getElementById("editor");
+const status    = document.getElementById("status");
+const statusText= document.getElementById("status-text");
+const charCount = document.getElementById("charCount");
+const wordCount = document.getElementById("wordCount");
+const charOnly  = document.getElementById("charOnly");
+const toast     = document.getElementById("toast");
+const toastText = document.getElementById("toast-text");
+const errorDot  = document.getElementById("errorDot");
+const errorOverlay = document.getElementById("errorOverlay");
+const errorList = document.getElementById("errorList");
+const errorDismiss = document.getElementById("errorDismiss");
+const errorTitle = document.getElementById("errorTitle");
+
+/* Mermaid render errors collected during paste */
+var mermaidErrors = [];
+
+/* ── Allowed tags ────────────────────────────────────────────── */
+const ALLOWED_TAGS = new Set([
+  // Text formatting
+  "B","STRONG","I","EM","U","S","STRIKE","DEL","MARK","SUB","SUP",
+  // Headings
+  "H1","H2","H3","H4","H5","H6",
+  // Lists
+  "UL","OL","LI","DL","DT","DD",
+  // Links & media
+  "A","IMG",
+  // Blocks
+  "P","BR","HR","BLOCKQUOTE","PRE","CODE",
+  // Containers
+  "SPAN","DIV","SECTION","ARTICLE",
+  // Tables
+  "TABLE","THEAD","TBODY","TFOOT","TR","TD","TH",
+  "CAPTION","COLGROUP","COL",
+]);
+
+/* ── Tags to remove entirely (with children) ─────────────────── */
+const DROP_TAGS = new Set([
+  "STYLE","SCRIPT","META","LINK","NOSCRIPT","TEMPLATE",
+  "TITLE","HEAD","IFRAME","OBJECT","EMBED","SVG","INPUT","BUTTON","FORM",
+  // Word / Google Docs namespace junk
+  "O:P","V:SHAPE","V:SHAPETYPE","V:FILL","V:STROKE",
+  "V:PATH","V:TEXTBOX","O:LOCK",
+]);
+
+/* ── Style properties to KEEP (everything else is stripped) ──── */
+const KEEP_STYLES = new Set(["text-align"]);
+
+/* ── Attributes to keep per tag ──────────────────────────────── */
+const KEEP_ATTRS = {
+  "*":   [],
+  "A":   ["href","title"],
+  "IMG": ["src","alt","title","width","height"],
+  "TD":  ["colspan","rowspan","style"],
+  "TH":  ["colspan","rowspan","scope","style"],
+  "COL": ["span","width"],
+  "COLGROUP": ["span","width"],
+};
+function allowedAttrs(tag){ return KEEP_ATTRS[tag] || KEEP_ATTRS["*"]; }
+
+/* ════════════════════════════════════════════════════════════════
+   SANITIZATION ENGINE
+   ════════════════════════════════════════════════════════════════ */
+
+function sanitizeHTML(html) {
+  // Strip HTML comments (including Word conditional comments <!--[if ...]>)
+  html = html.replace(/<!--[\s\S]*?-->/g, "");
+  // Strip XML processing instructions and DOCTYPE
+  html = html.replace(/<\?xml[\s\S]*?\?>/gi, "");
+  html = html.replace(/<!DOCTYPE[^>]*>/gi, "");
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  // Remove drop tags entirely (with children)
+  doc.querySelectorAll("*").forEach(el => {
+    if (DROP_TAGS.has(el.tagName)) el.remove();
+  });
+
+  // Remove namespaced elements that aren't in our allow list (Word/Google Docs)
+  doc.querySelectorAll("*").forEach(el => {
+    if (el.tagName.includes(":") && !ALLOWED_TAGS.has(el.tagName)) {
+      while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+      el.remove();
+    }
+  });
+
+  // Walk and clean all remaining elements
+  const elements = Array.from(doc.body.querySelectorAll("*"));
+  for (const el of elements) {
+    const tag = el.tagName;
+
+    // Unwrap disallowed tags (keep children)
+    if (!ALLOWED_TAGS.has(tag)) {
+      while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+      el.remove();
+      continue;
+    }
+
+    // Strip ALL inline styles except text-align (for table cells)
+    if (el.hasAttribute("style")) {
+      const style = el.getAttribute("style");
+      const decls = style.split(";").filter(decl => {
+        const ci = decl.indexOf(":");
+        if (ci === -1) return false;
+        const prop = decl.slice(0, ci).trim().toLowerCase();
+        if (prop.startsWith("mso-")) return false;
+        return KEEP_STYLES.has(prop);
+      });
+      if (decls.length > 0) el.setAttribute("style", decls.join("; "));
+      else el.removeAttribute("style");
+    }
+
+    // Clean attributes — keep only allowed for this tag
+    const allowed = new Set(allowedAttrs(tag));
+    for (const attr of Array.from(el.attributes)) {
+      if (!allowed.has(attr.name)) el.removeAttribute(attr.name);
+      // Block javascript:/vbscript: URLs. Per the URL spec, browsers strip
+      // ASCII tab/newline/carriage-return characters anywhere in a URL
+      // before parsing its scheme — so a naive prefix check on the raw
+      // value can be bypassed with e.g. "jav\tascript:...". Strip all
+      // control/whitespace characters first to match real browser parsing.
+      if (attr.name === "href") {
+        const v = attr.value.replace(/[\u0000-\u0020]+/g, "").toLowerCase();
+        if (v.startsWith("javascript:") || v.startsWith("vbscript:"))
+          el.removeAttribute("href");
+      }
+      // Block data: URLs on img (potential XSS vector) — same bypass guard.
+      if (attr.name === "src") {
+        const v = attr.value.replace(/[\u0000-\u0020]+/g, "").toLowerCase();
+        if (v.startsWith("data:text/html")) el.removeAttribute("src");
+      }
+    }
+
+    // Strip color/bgcolor/face attributes (from <font> tags before unwrapping)
+    el.removeAttribute("color");
+    el.removeAttribute("bgcolor");
+    el.removeAttribute("face");
+    el.removeAttribute("size");
+
+    // Remove empty inline elements
+    if (tag === "SPAN" && !el.textContent.trim() && !el.querySelector("img"))
+      el.remove();
+  }
+
+  // Remove empty paragraphs/divs
+  doc.body.querySelectorAll("p, div").forEach(el => {
+    if (!el.textContent.trim() && !el.querySelector("img, hr, br")) el.remove();
+  });
+
+  // Auto-format tables
+  formatTables(doc);
+
+  return doc.body.innerHTML;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABLE AUTO-FORMATTING
+   ════════════════════════════════════════════════════════════════ */
+
+function formatTables(doc) {
+  doc.querySelectorAll("table").forEach(table => {
+    let thead = table.querySelector("thead");
+    let tbody = table.querySelector("tbody");
+
+    // If no thead/tbody, detect first row as header if all cells are TH
+    if (!thead && !tbody) {
+      const firstRow = table.querySelector("tr");
+      if (firstRow) {
+        const cells = firstRow.querySelectorAll("th, td");
+        const allTH = cells.length > 0 && Array.from(cells).every(c => c.tagName === "TH");
+        if (allTH) {
+          thead = doc.createElement("thead");
+          thead.appendChild(firstRow);
+          table.insertBefore(thead, table.firstChild);
+        }
+      }
+    }
+
+    // Wrap orphan <tr> (direct children of table) into tbody
+    const orphanRows = Array.from(table.children).filter(
+      el => el.tagName === "TR" && el.parentElement === table
+    );
+    if (orphanRows.length > 0) {
+      if (!tbody) { tbody = doc.createElement("tbody"); table.appendChild(tbody); }
+      orphanRows.forEach(row => tbody.appendChild(row));
+    }
+
+    // Clean each cell
+    table.querySelectorAll("td, th").forEach(cell => {
+      cell.removeAttribute("width");
+      cell.removeAttribute("style");
+      cell.removeAttribute("class");
+      cell.removeAttribute("bgcolor");
+      cell.removeAttribute("valign");
+      cell.removeAttribute("align");
+      // Ensure non-empty cells have nbsp for structure
+      if (cell.textContent.trim() === "" && !cell.querySelector("img"))
+        cell.innerHTML = "&nbsp;";
+    });
+
+    // Clean col elements
+    table.querySelectorAll("col").forEach(col => {
+      col.removeAttribute("style");
+      col.removeAttribute("class");
+    });
+
+    // Clean caption
+    table.querySelectorAll("caption").forEach(cap => {
+      cap.removeAttribute("style");
+      cap.removeAttribute("class");
+    });
+
+    // Strip table-level junk attributes
+    ["style","class","width","border","cellpadding","cellspacing",
+     "bgcolor","bordercolor","align","valign","background"].forEach(a =>
+      table.removeAttribute(a)
+    );
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INPUT DETECTION — markdown, raw HTML, or mixed
+   ════════════════════════════════════════════════════════════════ */
+
+/* Detect RAW HTML tags embedded in plain text.
+   Looks for opening tags like <p>, <strong>, <a href="...">, etc. */
+function looksLikeHTML(text) {
+  if (!text) return false;
+  // Quick scan: any opening tag with a known name
+  const re = /<\s*(p|div|span|strong|b|i|em|u|h[1-6]|ul|ol|li|blockquote|code|pre|a\s|link|br|hr|table|tr|td|th|thead|tbody|tfoot|img|section|article|mark|small|sub|sup|s|strike|del|font)\b/i;
+  return re.test(text);
+}
+
+/* Detect markdown syntax. */
+function looksLikeMarkdown(text) {
+  if (!text || !text.trim()) return false;
+  const lines = text.split("\n");
+  let score = 0;
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^#{1,6}\s+\S/.test(t)) score += 2;             // heading
+    if (/^```/.test(t)) score += 3;                      // code fence
+    if (/\[[^\]]+\]\([^)]+\)/.test(t)) score += 2;      // link
+    if (/^>\s+\S/.test(t)) score += 2;                   // blockquote
+    if (/^\|.*\|/.test(t)) score += 3;                   // table row
+    if (/^[-*]\s+\S/.test(t)) score += 1;               // ul item
+    if (/^\d+\.\s+\S/.test(t)) score += 1;              // ol item
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) score += 2;   // hr
+    if (/\*\*[^*]+\*\*/.test(t) || /__[^_]+__/.test(t)) score += 1; // bold
+    if (/`[^`]+`/.test(t)) score += 1;                  // inline code
+    if (/~~[^~]+~~/.test(t)) score += 1;               // strikethrough
+  }
+  return score >= 3;
+}
+
+function parseMdTable(lines, startI) {
+  const headerLine = lines[startI].trim();
+  const sepLine = lines[startI + 1].trim();
+
+  const aligns = sepLine.split("|").filter(c => c.trim()).map(c => {
+    const t = c.trim();
+    if (t.startsWith(":") && t.endsWith(":")) return "center";
+    if (t.endsWith(":")) return "right";
+    return "left";
+  });
+
+  const parseCells = (line) => line.split("|")
+    .map(c => c.trim())
+    .filter((c, idx, arr) => !(idx === 0 && c === "") && !(idx === arr.length - 1 && c === ""));
+
+  const headers = parseCells(headerLine);
+
+  let i = startI + 2;
+  const bodyRows = [];
+  while (i < lines.length && /^\|.*\|/.test(lines[i].trim())) {
+    bodyRows.push(parseCells(lines[i].trim()));
+    i++;
+  }
+
+  let html = "<table><thead><tr>";
+  headers.forEach((h, idx) => {
+    const a = aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "";
+    html += `<th${a}>${inlineMd(h)}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+  bodyRows.forEach(row => {
+    html += "<tr>";
+    headers.forEach((_, idx) => {
+      const cell = row[idx] || "";
+      const a = aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "";
+      html += `<td${a}>${inlineMd(cell)}</td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  return { html, nextI: i };
+}
+
+function inlineMd(text) {
+  let r = escapeHtml(text);
+
+  // Inline code (first, to protect from other replacements)
+  const codes = [];
+  r = r.replace(/`([^`]+)`/g, (_, c) => {
+    codes.push(`<code>${c}</code>`);
+    return `\x00C${codes.length - 1}\x00`;
+  });
+
+  // Images: ![alt](url)
+  r = r.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  // Links: [text](url)
+  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // Bold
+  r = r.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  r = r.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  // Italic — avoid lookbehind for Safari < 16.4 compatibility.
+  // Matches *text* that is NOT preceded or followed by another *.
+  r = r.replace(/(^|[^*])\*([^*]+)\*([^*]|$)/g, "$1<em>$2</em>$3");
+  r = r.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, "$1<em>$2</em>$3");
+  // Strikethrough
+  r = r.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+
+  // Restore code
+  r = r.replace(/\x00C(\d+)\x00/g, (_, idx) => codes[parseInt(idx)]);
+  return r;
+}
+
+function escapeHtml(text) {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MERMAID — render diagrams to SVG, convert to PNG for clipboard
+   ════════════════════════════════════════════════════════════════ */
+
+var mermaidReady = false;
+if (typeof mermaid !== "undefined") {
+  mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+  mermaidReady = true;
+}
+
+/* Suppress mermaid.js error elements injected into the DOM.
+   Mermaid v11 appends a <div id="d{renderId}"> containing an error SVG
+   as a direct child of <body> on render failure. The error SVG has
+   aria-roledescription="error". This observer removes only error divs,
+   not valid render temp divs. Also cleaned up by id in renderMermaidToPng. */
+var mermaidErrorObserver = new MutationObserver(function(mutations) {
+  for (var m = 0; m < mutations.length; m++) {
+    for (var i = 0; i < mutations[m].addedNodes.length; i++) {
+      var node = mutations[m].addedNodes[i];
+      if (node.nodeType === 1) {
+        var el = node;
+        // Only remove mermaid ERROR divs: must contain an SVG with
+        // aria-roledescription="error" — valid render divs are left alone.
+        if (el.tagName === "DIV" && el.id && /^d[mM]/.test(el.id)) {
+          var svg = el.querySelector("svg");
+          if (svg && svg.getAttribute("aria-roledescription") === "error") {
+            el.remove();
+          }
+        }
+      }
+    }
+  }
+});
+mermaidErrorObserver.observe(document.body, { childList: true, subtree: false });
+
+/* Render a mermaid definition to a base64 PNG data URI.
+   Returns null on failure. */
+async function renderMermaidToPng(definition) {
+  if (!mermaidReady) return null;
+  try {
+    var id = "m" + Date.now() + Math.floor(Math.random() * 1000);
+    var renderPromise = mermaid.render(id, definition);
+    var timeoutPromise = new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error("Mermaid render timeout")); }, 10000);
+    });
+    var result = await Promise.race([renderPromise, timeoutPromise]);
+    // Clean up mermaid temp div (it creates <div id="d{id}"> in body)
+    var tempDiv = document.getElementById("d" + id);
+    if (tempDiv) tempDiv.remove();
+    var svgStr = result.svg;
+
+    // Get dimensions from the SVG — safe fallback if attributes missing
+    var parser = new DOMParser();
+    var svgDoc = parser.parseFromString(svgStr, "image/svg+xml");
+    var svgEl = svgDoc.querySelector("svg");
+    var w = 800, h = 600;
+    try {
+      var vb = svgEl.viewBox.baseVal;
+      if (vb && vb.width) { w = vb.width; h = vb.height; }
+      else {
+        var wAttr = svgEl.getAttribute("width");
+        var hAttr = svgEl.getAttribute("height");
+        if (wAttr) w = parseFloat(wAttr) || 800;
+        if (hAttr) h = parseFloat(hAttr) || 600;
+      }
+    } catch (e) { /* use defaults */ }
+
+    // Scale to 2x for crisp output, cap at 2400px wide
+    var scale = Math.min(2, 2400 / w);
+    var cw = Math.round(w * scale);
+    var ch = Math.round(h * scale);
+
+    // SVG → canvas → PNG
+    // Use data URI instead of blob URL to avoid canvas tainting
+    // Replace deprecated unescape() with manual UTF-8 encoding
+    var svgBytes = new TextEncoder().encode(svgStr);
+    var svgB64 = btoa(String.fromCharCode.apply(null, svgBytes));
+    var svgDataUri = "data:image/svg+xml;base64," + svgB64;
+    var canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cw, ch);
+
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+
+    await new Promise(function(resolve, reject) {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = svgDataUri;
+    });
+
+    ctx.drawImage(img, 0, 0, cw, ch);
+
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    console.error("Mermaid render failed:", err);
+    // Clean up mermaid error div (id="d{renderId}") from body
+    var errDiv = document.getElementById("d" + id);
+    if (errDiv) errDiv.remove();
+    // Also scan for any stray mermaid error divs (e.g. from timeout race)
+    var strayDivs = document.querySelectorAll('body > div[id^="dm"]');
+    for (var si = 0; si < strayDivs.length; si++) {
+      var svg = strayDivs[si].querySelector("svg");
+      if (svg && svg.getAttribute("aria-roledescription") === "error") {
+        strayDivs[si].remove();
+      }
+    }
+    mermaidErrors.push({ definition: definition, errorMessage: (err && err.message) ? err.message : String(err) });
+    return null;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MIXED CONTENT RENDERING — html block + markdown block per section
+   ════════════════════════════════════════════════════════════════ */
+
+/* Process plain text that contains a mix of raw HTML and markdown.
+   Strategy: split on blank lines into "blocks"; each block is detected
+   independently and either sanitized (if HTML) or converted to HTML (if
+   markdown), and the resulting blocks are joined back together.
+   Async because mermaid rendering requires await. */
+async function renderMixedContent(plain) {
+  // Unified per-line renderer.
+  // We classify EACH LINE independently (line-level = block-level markers
+  // like headings, list items, blockquotes, hr, code fences, tables).
+  // INLINE markers (bold, italic, links, inline code) are applied
+  // everywhere — to plain text, to HTML, to mixed. This way, pasting a
+  // single line of markdown like "# Heading" or a sentence with
+  // "**bold**" and "<em>html</em>" together produces a rich render.
+  //
+  // Mermaid blocks are collected as placeholders during the main loop,
+  // then rendered in parallel after the loop completes for performance.
+  const lines = plain.split("\n");
+  const out = [];
+  const mermaidBlocks = []; // { placeholder, definition, fallback }
+  let inList = null; // 'ul' | 'ol' | null
+  let paraBuf = [];
+
+  const flushPara = () => {
+    if (paraBuf.length === 0) return;
+    const joined = paraBuf.join(" ");
+    // Two-track pipeline: run inline markdown (converts **bold** etc.)
+    // first, then sanitize so HTML <em>...</em> survives while
+    // markdown syntax is removed. Order matters — sanitize first
+    // unescapes the HTML we want to keep, then we'd need to convert
+    // markdown in plain runs; doing inlineMd first preserves the user
+    // markup, then sanitize scrubs the resulting attributes.
+    // Approach: inlineMd first (escapes < and > safely), then sanitize.
+    if (blockHasInlineMarkdown(joined)) {
+      // inlineMd escapes any < or > as &lt;/&gt; before regex replacements,
+      // so it's safe to apply on raw text that may contain HTML markup.
+      // Then sanitizeHTML processes the result, allowing tags back
+      // through the allow-list.
+      out.push(sanitizeHTML("<p>" + inlineMd(joined) + "</p>"));
+    } else if (looksLikeHTML(joined)) {
+      out.push(sanitizeHTML("<p>" + joined + "</p>"));
+    } else {
+      out.push("<p>" + escapeHtml(joined) + "</p>");
+    }
+    paraBuf = [];
+  };
+  const flushList = () => {
+    if (!inList) return;
+    out.push("</" + inList + ">");
+    inList = null;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+
+    // Blank line — flush accumulators
+    if (!t) {
+      flushPara(); flushList();
+      continue;
+    }
+
+    // ── Code fence (multi-line) ──────────────────────────────
+    if (/^```/.test(t)) {
+      flushPara(); flushList();
+      const lang = t.replace(/^```/, "").trim();
+      const code = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        code.push(lines[i]);
+        i++;
+      }
+      // Mermaid block — collect for parallel rendering
+      if (lang.toLowerCase() === "mermaid" && mermaidReady) {
+        var definition = code.join("\n");
+        var fallback = '<pre><code class="language-mermaid">' + escapeHtml(definition) + '</code></pre>';
+        var placeholder = "\x00MERMAID" + mermaidBlocks.length + "\x00";
+        mermaidBlocks.push({ placeholder: placeholder, definition: definition, fallback: fallback });
+        out.push(placeholder);
+      } else {
+        out.push(`<pre><code${lang ? ` class="language-${escapeHtml(lang)}"` : ""}>${escapeHtml(code.join("\n"))}</code></pre>`);
+      }
+      continue;
+    }
+
+    // ── Horizontal rule ──────────────────────────────────────
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) {
+      flushPara(); flushList();
+      out.push("<hr>");
+      continue;
+    }
+
+    // ── Heading ──────────────────────────────────────────────
+    const hm = t.match(/^(#{1,6})\s+(.+)$/);
+    if (hm) {
+      flushPara(); flushList();
+      const text = inlineMd(hm[2]);
+      out.push(`<h${hm[1].length}>${text}</h${hm[1].length}>`);
+      continue;
+    }
+
+    // ── Blockquote (consecutive) ─────────────────────────────
+    if (/^>\s?/.test(t)) {
+      flushPara(); flushList();
+      const quotes = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quotes.push(lines[i].trim().replace(/^>\s?/, ""));
+        i++;
+      }
+      i--; // rewind so outer loop's i++ lands on next non-quote line
+      // Render blockquote content with inline markdown
+      const content = blockHasInlineMarkdown(quotes.join(" "))
+        ? inlineMd(quotes.join(" "))
+        : escapeHtml(quotes.join(" "));
+      out.push(`<blockquote>${content}</blockquote>`);
+      continue;
+    }
+
+    // ── Markdown table ───────────────────────────────────────
+    if (/^\|.*\|/.test(t) && i + 1 < lines.length && /^\|[\s:|-]+\|/.test(lines[i+1].trim())) {
+      flushPara(); flushList();
+      const res = parseMdTable(lines, i);
+      out.push(res.html);
+      i = res.nextI - 1; // outer loop will i++
+      continue;
+    }
+
+    // ── Unordered list ───────────────────────────────────────
+    if (/^[-*]\s+\S/.test(t)) {
+      flushPara();
+      if (inList !== "ul") { flushList(); out.push("<ul>"); inList = "ul"; }
+      const itemText = t.replace(/^[-*]\s+/, "");
+      out.push("<li>" + (blockHasInlineMarkdown(itemText) ? inlineMd(itemText) : escapeHtml(itemText)) + "</li>");
+      continue;
+    }
+    // ── Ordered list ─────────────────────────────────────────
+    if (/^\d+\.\s+\S/.test(t)) {
+      flushPara();
+      if (inList !== "ol") { flushList(); out.push("<ol>"); inList = "ol"; }
+      const itemText = t.replace(/^\d+\.\s+/, "");
+      out.push("<li>" + (blockHasInlineMarkdown(itemText) ? inlineMd(itemText) : escapeHtml(itemText)) + "</li>");
+      continue;
+    }
+
+    // ── Default: paragraph ───────────────────────────────────
+    flushList();
+    paraBuf.push(t);
+  }
+
+  flushPara(); flushList();
+
+  // Render all mermaid blocks in parallel
+  if (mermaidBlocks.length > 0) {
+    var pngs = await Promise.all(mermaidBlocks.map(function(b) {
+      return renderMermaidToPng(b.definition);
+    }));
+    for (var mi = 0; mi < mermaidBlocks.length; mi++) {
+      var html = pngs[mi]
+        ? '<img src="' + pngs[mi] + '" alt="Mermaid diagram" style="max-width:100%;height:auto;">'
+        : mermaidBlocks[mi].fallback;
+      for (var oi = 0; oi < out.length; oi++) {
+        if (out[oi] === mermaidBlocks[mi].placeholder) {
+          out[oi] = html;
+          break;
+        }
+      }
+    }
+    // Final cleanup: remove any stray mermaid error divs from body
+    var strayDivs = document.querySelectorAll('body > div[id^="dm"]');
+    for (var si = 0; si < strayDivs.length; si++) {
+      var svg = strayDivs[si].querySelector("svg");
+      if (svg && svg.getAttribute("aria-roledescription") === "error") {
+        strayDivs[si].remove();
+      }
+    }
+  }
+
+  return out.join("\n");
+}
+
+/* Detect whether a string contains any inline markdown — bold, italic,
+   strikethrough, link, inline code, image — anywhere on the line. */
+function blockHasInlineMarkdown(text) {
+  if (!text) return false;
+  return /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\[[^\]]+\]\([^)]+\)|`[^`]+`|!\[[^\]]*\]\([^)]+\))/.test(text)
+    || /(^|[^*\s])\*[^\s*][^*]*[^\s*]\*(?!\*)/.test(text)
+    || /(^|[^_\s])_[^\s_][^_]*[^\s_]_(?!_)/.test(text);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   HTML → MARKDOWN CONVERTER (for Ctrl+Shift+C)
+   ════════════════════════════════════════════════════════════════ */
+
+function htmlToMarkdown(html) {
+  var tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return nodeToMarkdown(tmp).trim();
+}
+
+function nodeToMarkdown(node) {
+  var out = "";
+  for (var child = node.firstChild; child; child = child.nextSibling) {
+    out += nodeToMarkdownChild(child);
+  }
+  return out;
+}
+
+function nodeToMarkdownChild(node) {
+  if (node.nodeType === 3) return node.textContent;
+  if (node.nodeType !== 1) return "";
+
+  var tag = node.tagName;
+  var inner = nodeToMarkdown(node);
+  var text = node.textContent || "";
+
+  switch (tag) {
+    case "H1": return "\n# " + text + "\n\n";
+    case "H2": return "\n## " + text + "\n\n";
+    case "H3": return "\n### " + text + "\n\n";
+    case "H4": return "\n#### " + text + "\n\n";
+    case "H5": return "\n##### " + text + "\n\n";
+    case "H6": return "\n###### " + text + "\n\n";
+    case "P": return inner + "\n\n";
+    case "BR": return "\n";
+    case "HR": return "\n---\n\n";
+    case "STRONG": case "B": return "**" + inner + "**";
+    case "EM": case "I": return "*" + inner + "*";
+    case "DEL": case "S": case "STRIKE": return "~~" + inner + "~~";
+    case "MARK": return "==" + inner + "==";
+    case "SUB": return "~" + inner + "~";
+    case "SUP": return "^" + inner + "^";
+    case "CODE":
+      if (node.parentElement && node.parentElement.tagName === "PRE") return inner;
+      return "`" + text + "`";
+    case "PRE": return "\n```\n" + text + "\n```\n\n";
+    case "BLOCKQUOTE": return "\n> " + inner.trim().replace(/\n/g, "\n> ") + "\n\n";
+    case "A":
+      var href = node.getAttribute("href") || "";
+      return "[" + inner + "](" + href + ")";
+    case "IMG":
+      var src = node.getAttribute("src") || "";
+      var alt = node.getAttribute("alt") || "";
+      return "![" + alt + "](" + src + ")";
+    case "UL":
+      var ulItems = Array.from(node.children).map(function(li) {
+        return "- " + nodeToMarkdown(li).trim();
+      });
+      return "\n" + ulItems.join("\n") + "\n\n";
+    case "OL":
+      var olItems = Array.from(node.children).map(function(li, idx) {
+        return (idx + 1) + ". " + nodeToMarkdown(li).trim();
+      });
+      return "\n" + olItems.join("\n") + "\n\n";
+    case "LI": return nodeToMarkdown(node);
+    case "DL":
+      return "\n" + nodeToMarkdown(node) + "\n\n";
+    case "DT": return "**" + text + "**\n";
+    case "DD": return ": " + inner + "\n";
+    case "TABLE":
+      return tableToMarkdown(node);
+    case "TBODY": case "THEAD": case "TFOOT": case "TR": case "TD": case "TH":
+    case "CAPTION": case "COLGROUP": case "COL":
+      return inner;
+    default:
+      return inner;
+  }
+}
+
+function tableToMarkdown(table) {
+  var rows = Array.from(table.querySelectorAll("tr"));
+  if (rows.length === 0) return "";
+  var header = rows[0];
+  var headerCells = Array.from(header.querySelectorAll("th, td")).map(function(c) {
+    return c.textContent.trim();
+  });
+  var bodyRows = rows.slice(1).map(function(row) {
+    return Array.from(row.querySelectorAll("th, td")).map(function(c) {
+      return c.textContent.trim();
+    });
+  });
+  var md = "\n";
+  md += "| " + headerCells.join(" | ") + " |\n";
+  md += "| " + headerCells.map(function() { return "---"; }).join(" | ") + " |\n";
+  bodyRows.forEach(function(row) {
+    md += "| " + row.join(" | ") + " |\n";
+  });
+  md += "\n";
+  return md;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CLIPBOARD & UI
+   ════════════════════════════════════════════════════════════════ */
+
+function updateCharCount() {
+  var text = editor.textContent || "";
+  var chars = text.length;
+  var words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  wordCount.textContent = words + " word" + (words === 1 ? "" : "s");
+  charOnly.textContent = chars + " char" + (chars === 1 ? "" : "s");
+}
+
+function setStatus(s, t) {
+  status.className = "status-indicator " + s;
+  statusText.textContent = t;
+}
+
+function showToast(m) {
+  toastText.textContent = m;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2000);
+}
+
+function copyCleanSync() {
+  const h = editor.innerHTML;
+  if (!h || h === "<br>" || !h.trim()) return false;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = h;
+  const txt = tmp.textContent || "";
+  return { html: h, text: txt };
+}
+
+function setLightTheme() {
+  document.documentElement.classList.add("theme-light");
+}
+
+function setDarkTheme() {
+  document.documentElement.classList.remove("theme-light");
+}
+
+/* ── Width controls ──────────────────────────────────────────── */
+const palette = document.querySelector(".palette");
+const statusbar = document.querySelector(".statusbar");
+const widthControls = document.querySelector(".width-controls");
+const widthLabel = document.getElementById("widthLabel");
+const widthInc = document.getElementById("widthInc");
+const widthDec = document.getElementById("widthDec");
+const WIDTH_MIN = 320, WIDTH_MAX = 1200, WIDTH_STEP = 40;
+let currentWidth = 620;
+
+function positionWidthControls() {
+  const sbRect = statusbar.getBoundingClientRect();
+  const ccRect = charCount.getBoundingClientRect();
+  const wcRect = widthControls.getBoundingClientRect();
+  widthControls.style.left = (sbRect.left + sbRect.width / 2) + "px";
+  // Check horizontal overlap between width controls and char count
+  var wcLeft = sbRect.left + sbRect.width / 2 - wcRect.width / 2;
+  var wcRight = wcLeft + wcRect.width;
+  var overlap = wcRight > ccRect.left - 8 && wcLeft < ccRect.right + 8;
+  if (overlap) {
+    // Position below status bar, centered horizontally
+    widthControls.style.top = (sbRect.bottom + wcRect.height / 2 + 4) + "px";
+  } else {
+    widthControls.style.top = (sbRect.top + sbRect.height / 2) + "px";
+  }
+  widthControls.classList.add("ready");
+}
+
+function applyWidth(w) {
+  currentWidth = Math.max(WIDTH_MIN, Math.min(WIDTH_MAX, w));
+  palette.style.maxWidth = currentWidth + "px";
+  widthLabel.textContent = currentWidth + "px";
+  editor.focus();
+  // Re-position controls after palette resize
+  setTimeout(positionWidthControls, 0);
+}
+
+widthInc.addEventListener("click", () => applyWidth(currentWidth + WIDTH_STEP));
+widthDec.addEventListener("click", () => applyWidth(currentWidth - WIDTH_STEP));
+
+// Position once after palette fadeIn completes, then fade in
+function initWidthControls() {
+  positionWidthControls();
+}
+palette.addEventListener("animationend", initWidthControls, { once: true });
+// Fallback if animationend doesn't fire
+setTimeout(initWidthControls, 400);
+// Reposition on window resize
+window.addEventListener("resize", positionWidthControls);
+// Reposition when editor content changes (vertical resize from paste/clear)
+new ResizeObserver(positionWidthControls).observe(editor);
+
+async function processPaste(clipboardData) {
+  // Clear previous mermaid errors
+  mermaidErrors = [];
+  errorDot.style.display = "none";
+  errorOverlay.classList.remove("show");
+
+  let html = clipboardData ? clipboardData.getData("text/html") : "";
+  let plain = clipboardData ? clipboardData.getData("text/plain") : "";
+
+  // 1. HTML from clipboard — BUT detect plain-text wrappers
+  //    (e.g. VS Code terminal or file manager copies that wrap plain text
+  //     in <html><body><pre>...</pre></body></html>). When the HTML
+  //    contains no real rich markup, prefer the plain-text renderer
+  //    which handles markdown + inline HTML.
+  if (html && html.trim()) {
+    var sanitized = sanitizeHTML(html);
+    // Detect degenerate HTML wrappers: a single <pre> or a single <p>
+    // whose inner text is essentially the plain text content.
+    var wrapper = detectPlainWrapper(sanitized, plain);
+    if (wrapper) {
+      // Fall through to the plain-text renderer below
+      html = "";
+    } else {
+      editor.innerHTML = sanitized;
+      setLightTheme();
+      setStatus("active", "Cleaned — ⌘C to copy");
+      updateCharCount();
+      return true;
+    }
+  }
+
+  // 2. Plain text — always run through the unified renderer.
+  if (plain && plain.trim()) {
+    editor.innerHTML = await renderMixedContent(plain);
+    setLightTheme();
+    var hasMdOrHtml = looksLikeMarkdown(plain) || looksLikeHTML(plain);
+    var hasMermaid = /```mermaid\b/i.test(plain);
+    if (hasMermaid) {
+      if (mermaidErrors.length > 0) {
+        setStatus("active", "Rendered (" + mermaidErrors.length + " diagram error" + (mermaidErrors.length > 1 ? "s" : "") + ") — ⌘C to copy");
+        errorDot.style.display = "inline-block";
+      } else {
+        setStatus("active", "Rendered (incl. diagrams) — ⌘C to copy");
+        showToast("✓ Markdown + Mermaid rendered");
+      }
+    } else if (hasMdOrHtml) {
+      setStatus("active", "Rendered — ⌘C to copy");
+      showToast("✓ Markdown / HTML rendered");
+    } else {
+      setStatus("active", "Text cleaned — ⌘C to copy");
+    }
+    updateCharCount();
+    return true;
+  }
+  return false;
+}
+
+/* Detect whether a sanitized HTML string is just a plain-text preservation
+   wrapper — typically <pre> or <p> wrapping escaped text from a terminal
+   or file manager. Returns true if we should use the plain text renderer
+   instead (which handles markdown/HTML detection properly). */
+function detectPlainWrapper(sanitizedHTML, plainText) {
+  if (!sanitizedHTML || !plainText) return false;
+  if (sanitizedHTML === plainText) return false; // identical → no wrapper
+  // Strip all tags from sanitized HTML and compare to plain text
+  var stripped = sanitizedHTML.replace(/<[^>]+>/g, "");
+  // Decode common HTML entities that sanitizeHTML may have produced
+  stripped = stripped.replace(/&amp;/g, "&").replace(/&lt;/g, "<")
+                     .replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+                     .replace(/&#x27;/g, "'").replace(/&#39;/g, "'");
+  // If the stripped text is substantially the same as plain text, the
+  // HTML is just a wrapper (e.g. <pre>...</pre> from a terminal copy).
+  // Allow small differences from entity encoding.
+  if (stripped.trim() === plainText.trim()) return true;
+  // Also detect: entire sanitized HTML is just a single <pre>...</pre>
+  if (/^<(pre|p|div)\b[^>]*>[\s\S]*<\/\1>$/.test(sanitizedHTML.trim())) return true;
+  return false;
+}
+
+function cleanAndDisplay(html) {
+  editor.innerHTML = sanitizeHTML(html);
+  setLightTheme();
+  setStatus("active", "Cleaned — ⌘C to copy");
+  updateCharCount();
+  editor.focus();
+}
+
+/* Clear editor contents and revert to dark theme.
+   Used after a successful copy. */
+function clearAndRevert() {
+  editor.innerHTML = "";
+  setDarkTheme();
+  setStatus("", "Cleared — paste to begin");
+  updateCharCount();
+  mermaidErrors = [];
+  errorDot.style.display = "none";
+  errorOverlay.classList.remove("show");
+  editor.focus();
+}
+
+/* ── Paste event ─────────────────────────────────────────────── */
+editor.addEventListener("paste", function(e) {
+  e.preventDefault();
+  const cd = e.clipboardData || window.clipboardData;
+  processPaste(cd).catch(function(err) { console.error("Paste error:", err); });
+  requestAnimationFrame(function() { editor.focus(); });
+});
+
+// Catch paste events that fire on document when editor isn't focused
+document.addEventListener("paste", function(e) {
+  if (document.activeElement !== editor) {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    processPaste(cd).catch(function(err) { console.error("Paste error:", err); });
+    requestAnimationFrame(function() { editor.focus(); });
+  }
+});
+
+/* ── Drag-and-drop file support ─────────────────────────────── */
+function handleFileDrop(e) {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    var file = e.dataTransfer.files[0];
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var content = ev.target.result;
+      var mockCd = { getData: function(type) {
+        if (type === "text/plain") return content;
+        if (type === "text/html" && /\.(html?|htm)$/i.test(file.name)) return content;
+        return "";
+      }};
+      processPaste(mockCd).catch(function(err) { console.error("Drop error:", err); });
+      requestAnimationFrame(function() { editor.focus(); });
+    };
+    reader.readAsText(file);
+  }
+}
+editor.addEventListener("dragover", function(e) { e.preventDefault(); });
+editor.addEventListener("drop", handleFileDrop);
+document.addEventListener("dragover", function(e) { e.preventDefault(); });
+document.addEventListener("drop", handleFileDrop);
+
+/* ── Enter to clean (fallback if paste detection fails) ──────── */
+editor.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    if (editor.innerHTML && editor.innerHTML !== "<br>") {
+      cleanAndDisplay(editor.innerHTML);
+    }
+  }
+});
+
+/* ── Global keyboard shortcuts ───────────────────────────────── */
+document.addEventListener("keydown", function(e) {
+  const mod = e.metaKey || e.ctrlKey;
+
+  // Ctrl+Enter / Cmd+Enter — re-clean + copy
+  // Must call copyToClipboard() synchronously within this handler (no
+  // setTimeout/rAF in between) — clipboard writes require an active user
+  // gesture, and deferring the call even by a few ms can cause browsers
+  // to treat it as un-triggered by user interaction and silently reject it.
+  if (mod && e.key === "Enter") {
+    e.preventDefault();
+    if (editor.innerHTML && editor.innerHTML !== "<br>") {
+      cleanAndDisplay(editor.innerHTML);
+      copyToClipboard();
+    }
+    return;
+  }
+
+  // Ctrl+C / Cmd+C — copy cleaned content.
+  // Do NOT preventDefault here: blocking the native copy action is what
+  // breaks Chromium forks (Vivaldi/Chrome) when the async Clipboard API
+  // fails — the sync fallback then runs outside the user-gesture window.
+  // Instead: select the editor, set a flag, and let the browser fire its
+  // native `copy` event; our capture-phase listener injects cleaned HTML.
+  if (mod && !e.shiftKey && (e.key === "c" || e.key === "C")) {
+    var sel = window.getSelection();
+    if (sel && sel.toString().length > 0) return;
+    if (!editor.innerHTML.trim()) return;
+
+    pendingCleanCopy = true;
+    cleanCopyGeneration++;
+    var copyGen = cleanCopyGeneration;
+    editor.focus();
+    var range = document.createRange();
+    range.selectNodeContents(editor);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // Safety net: if the browser never fires `copy` for this keypress
+    // (seen in some Chromium builds), fall back to sync execCommand.
+    setTimeout(function() {
+      if (!pendingCleanCopy || copyGen !== cleanCopyGeneration) return;
+      pendingCleanCopy = false;
+      var data = copyCleanSync();
+      if (!data) { onCopyFailure(); return; }
+      if (performCopySync(data)) {
+        onCopySuccess("Copied — ready for paste target");
+      } else {
+        copyViaClipboardApi(data);
+      }
+    }, 0);
+  }
+
+  // Ctrl+Shift+M / Cmd+Shift+M — copy as Markdown
+  // Uses the same flag-based pattern as Ctrl+C: focus editor, select
+  // content, trigger execCommand("copy"), and let the global capture-phase
+  // copy listener inject the markdown data. This avoids focus issues when
+  // the editor isn't focused at keydown time.
+  if (mod && e.shiftKey && (e.key === "m" || e.key === "M")) {
+    e.preventDefault();
+    if (!editor.innerHTML.trim()) return;
+    var md = htmlToMarkdown(editor.innerHTML);
+    if (!md.trim()) return;
+    pendingMarkdownCopy = {
+      html: "<pre><code>" + escapeHtml(md) + "</code></pre>",
+      text: md,
+      message: "Copied as Markdown"
+    };
+    // Focus editor and select content — same pattern as Ctrl+C
+    editor.focus();
+    var mdSel = window.getSelection();
+    var mdRange = document.createRange();
+    mdRange.selectNodeContents(editor);
+    mdSel.removeAllRanges();
+    mdSel.addRange(mdRange);
+    // Trigger copy synchronously within the user gesture
+    try { document.execCommand("copy"); } catch (err) {}
+    // Safety net: if execCommand didn't fire copy event, try async API
+    var mdFallback = { html: pendingMarkdownCopy.html, text: md };
+    setTimeout(function() {
+      if (!pendingMarkdownCopy) return;
+      pendingMarkdownCopy = null;
+      copyViaClipboardApi(mdFallback);
+    }, 0);
+    return;
+  }
+
+  // Arrow left/right (no modifier) — adjust width when editor is focused
+  if (!mod && document.activeElement === editor) {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      applyWidth(currentWidth - WIDTH_STEP);
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      applyWidth(currentWidth + WIDTH_STEP);
+      return;
+    }
+  }
+});
+
+/* ── Topbar shortcut button handlers ─────────────────────────── */
+document.getElementById("btnCopy").addEventListener("click", function() {
+  if (!editor.innerHTML.trim()) return;
+  pendingCleanCopy = true;
+  cleanCopyGeneration++;
+  editor.focus();
+  var sel = window.getSelection();
+  var range = document.createRange();
+  range.selectNodeContents(editor);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  try { document.execCommand("copy"); } catch (err) {}
+  setTimeout(function() {
+    if (!pendingCleanCopy) return;
+    pendingCleanCopy = false;
+    var data = copyCleanSync();
+    if (!data) { onCopyFailure(); return; }
+    if (performCopySync(data)) {
+      onCopySuccess("Copied — ready for paste target");
+    } else {
+      copyViaClipboardApi(data);
+    }
+  }, 0);
+});
+
+document.getElementById("btnMd").addEventListener("click", function() {
+  if (!editor.innerHTML.trim()) return;
+  var md = htmlToMarkdown(editor.innerHTML);
+  if (!md.trim()) return;
+  pendingMarkdownCopy = {
+    html: "<pre><code>" + escapeHtml(md) + "</code></pre>",
+    text: md,
+    message: "Copied as Markdown"
+  };
+  editor.focus();
+  var sel = window.getSelection();
+  var range = document.createRange();
+  range.selectNodeContents(editor);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  try { document.execCommand("copy"); } catch (err) {}
+  var mdFallback = { html: pendingMarkdownCopy.html, text: md };
+  setTimeout(function() {
+    if (!pendingMarkdownCopy) return;
+    pendingMarkdownCopy = null;
+    copyViaClipboardApi(mdFallback);
+  }, 0);
+});
+
+document.getElementById("btnCleanCopy").addEventListener("click", function() {
+  if (editor.innerHTML && editor.innerHTML !== "<br>") {
+    cleanAndDisplay(editor.innerHTML);
+    copyToClipboard();
+  }
+});
+
+document.getElementById("btnHelp").addEventListener("click", function() {
+  document.getElementById("helpOverlay").classList.add("show");
+});
+
+/* ── Copy cleaned content to clipboard ───────────────────────────────────
+   Vivaldi/Chromium require clipboard writes inside a live user gesture.
+   The previous implementation called `await navigator.clipboard.write()`
+   first; when that rejected, the sync fallback ran after the `await` — outside
+   the gesture — so every strategy failed and showed "Copy failed".
+
+   Primary path (Ctrl+C): ride the browser's native `copy` event.
+     keydown → select editor → do NOT preventDefault → browser fires copy
+     → capture listener injects text/html + text/plain.
+   Secondary path (Ctrl+Enter, or if native copy never fires): synchronous
+     execCommand('copy') with a capture listener, tried in order:
+       (a) select editor contents  (b) hidden contenteditable div with HTML
+       (c) hidden textarea with plain text.
+   Tertiary path: async Clipboard API / writeText (best-effort).
+   ─────────────────────────────────────────────────────────────────────── */
+
+var pendingCleanCopy = false;
+var pendingMarkdownCopy = null;
+var cleanCopyGeneration = 0;
+
+document.addEventListener("copy", function(e) {
+  if (pendingMarkdownCopy) {
+    try {
+      e.clipboardData.setData("text/html", pendingMarkdownCopy.html);
+      e.clipboardData.setData("text/plain", pendingMarkdownCopy.text);
+      e.preventDefault();
+      var msg = pendingMarkdownCopy.message || "Copied as Markdown";
+      pendingMarkdownCopy = null;
+      onCopySuccess(msg);
+    } catch (err) {
+      pendingMarkdownCopy = null;
+      onCopyFailure();
+    }
+    return;
+  }
+  if (!pendingCleanCopy) return;
+  pendingCleanCopy = false;
+  var data = copyCleanSync();
+  if (!data) return;
+  try {
+    e.clipboardData.setData("text/html", data.html);
+    e.clipboardData.setData("text/plain", data.text);
+    e.preventDefault();
+    onCopySuccess("Copied — ready for paste target");
+  } catch (err) {
+    onCopyFailure();
+  }
+}, true);
+
+function copyToClipboard() {
+  pendingCleanCopy = false;
+  var data = copyCleanSync();
+  if (!data) return;
+  if (performCopySync(data)) {
+    onCopySuccess("Copied — ready for paste target");
+    return;
+  }
+  copyViaClipboardApi(data);
+}
+
+/* Synchronous copy — must complete inside the calling user-gesture handler. */
+function performCopySync(data) {
+  var succeeded = false;
+
+  function onCopy(e) {
+    try {
+      e.clipboardData.setData("text/html", data.html);
+      e.clipboardData.setData("text/plain", data.text);
+      e.preventDefault();
+      succeeded = true;
+    } catch (err) {}
+  }
+
+  document.addEventListener("copy", onCopy, true);
+  var sel = window.getSelection();
+
+  try {
+    // (a) Editor is usually focused after paste — select its contents.
+    editor.focus();
+    var range = document.createRange();
+    range.selectNodeContents(editor);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    try { document.execCommand("copy"); } catch (err) {}
+
+    // (b) Hidden contenteditable div carrying the HTML payload.
+    if (!succeeded) {
+      sel.removeAllRanges();
+      var div = document.createElement("div");
+      div.contentEditable = "true";
+      div.innerHTML = data.html;
+      div.setAttribute("aria-hidden", "true");
+      div.style.cssText = "position:fixed;top:0;left:0;width:2px;height:2px;overflow:hidden;opacity:0;";
+      document.body.appendChild(div);
+      div.focus();
+      range = document.createRange();
+      range.selectNodeContents(div);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      try { document.execCommand("copy"); } catch (err) {}
+      document.body.removeChild(div);
+    }
+
+    // (c) Hidden textarea — plain-text carrier; copy listener still injects HTML.
+    if (!succeeded) {
+      sel.removeAllRanges();
+      var ta = document.createElement("textarea");
+      ta.value = data.text || "\u00a0";
+      ta.setAttribute("aria-hidden", "true");
+      ta.style.cssText = "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      try { document.execCommand("copy"); } catch (err) {}
+      document.body.removeChild(ta);
+    }
+  } finally {
+    document.removeEventListener("copy", onCopy, true);
+    sel.removeAllRanges();
+    editor.focus();
+  }
+
+  return succeeded;
+}
+
+/* Async Clipboard API — only as best-effort fallback after sync paths fail. */
+function copyViaClipboardApi(data) {
+  if (!navigator.clipboard || !window.isSecureContext) {
+    onCopyFailure();
+    return;
+  }
+
+  if (window.ClipboardItem && navigator.clipboard.write) {
+    var htmlBlob = new Blob([data.html], { type: "text/html" });
+    var textBlob = new Blob([data.text], { type: "text/plain" });
+    navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": htmlBlob,
+        "text/plain": textBlob,
+      }),
+    ]).then(function() {
+      onCopySuccess("Copied — ready for paste target");
+    }).catch(function() {
+      if (navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(data.text).then(function() {
+          onCopySuccess("Copied as plain text");
+        }).catch(onCopyFailure);
+      } else {
+        onCopyFailure();
+      }
+    });
+    return;
+  }
+
+  if (navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(data.text).then(function() {
+      onCopySuccess("Copied as plain text");
+    }).catch(onCopyFailure);
+    return;
+  }
+
+  onCopyFailure();
+}
+
+function onCopySuccess(message) {
+  setStatus("copied", message);
+  showToast("✓ " + message);
+  // Brief celebration delay then clear + revert
+  setTimeout(clearAndRevert, 300);
+}
+
+function onCopyFailure() {
+  setStatus("", "Copy failed — try again");
+  setTimeout(function() {
+    if (editor.innerHTML.trim()) setStatus("active", "Cleaned — ⌘C to copy");
+  }, 2000);
+}
+
+editor.addEventListener("input", updateCharCount);
+
+/* ── Keyboard shortcut help overlay ──────────────────────────── */
+const helpOverlay = document.getElementById("helpOverlay");
+helpOverlay.addEventListener("click", function(e) {
+  if (e.target === helpOverlay) helpOverlay.classList.remove("show");
+});
+document.addEventListener("keydown", function(e) {
+  if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    helpOverlay.classList.add("show");
+  }
+  if (e.key === "Escape") {
+    helpOverlay.classList.remove("show");
+    errorOverlay.classList.remove("show");
+  }
+});
+
+/* ── Mermaid error popup ────────────────────────────────────── */
+errorDot.addEventListener("click", function() {
+  if (mermaidErrors.length === 0) return;
+  errorTitle.textContent = mermaidErrors.length + " mermaid diagram" + (mermaidErrors.length > 1 ? "s" : "") + " failed to render";
+  errorList.innerHTML = "";
+  for (var i = 0; i < mermaidErrors.length; i++) {
+    var err = mermaidErrors[i];
+    var item = document.createElement("div");
+    item.className = "error-item";
+    var codeDiv = document.createElement("div");
+    codeDiv.className = "error-item-code";
+    codeDiv.textContent = err.definition;
+    var msgDiv = document.createElement("div");
+    msgDiv.className = "error-item-msg";
+    msgDiv.textContent = err.errorMessage;
+    item.appendChild(codeDiv);
+    item.appendChild(msgDiv);
+    // Add "Show full" toggle if code is long
+    if (err.definition.length > 200) {
+      var toggle = document.createElement("span");
+      toggle.className = "show-full";
+      toggle.textContent = "Show full";
+      toggle.addEventListener("click", function() {
+        var cd = this.parentNode;
+        cd.classList.toggle("expanded");
+        this.textContent = cd.classList.contains("expanded") ? "Collapse" : "Show full";
+      });
+      codeDiv.appendChild(toggle);
+    }
+    errorList.appendChild(item);
+  }
+  errorOverlay.classList.add("show");
+});
+
+errorDismiss.addEventListener("click", function() {
+  errorOverlay.classList.remove("show");
+  errorDot.style.display = "none";
+});
+
+errorOverlay.addEventListener("click", function(e) {
+  if (e.target === errorOverlay) {
+    errorOverlay.classList.remove("show");
+    errorDot.style.display = "none";
+  }
+});
+
+editor.focus();
+</script>
+<noscript>
+  <h1>eclear — Rich Text Sanitizer &amp; Markdown to HTML Converter</h1>
+  <p>eclear is a free, browser-based rich text sanitizer. Paste messy content from Word, Google Docs, VS Code, or dark-themed editors — eclear strips dark themes, inline styles, and junk markup, then copies clean rich text to your clipboard. 100% client-side, no server, no tracking.</p>
+  <p>JavaScript is required to use eclear. Please enable JavaScript in your browser.</p>
+</noscript>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "eclear",
+  "description": "Free browser-based rich text sanitizer. Paste messy content from Word, Google Docs, VS Code, or dark-themed editors — eclear strips dark themes, inline styles, and junk markup. Copy clean HTML in one keystroke. 100% client-side.",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Chrome 76+, Firefox 90+, Safari 13.1+, Edge 79+",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Dark theme stripping",
+    "Markdown to HTML conversion",
+    "Mermaid diagram rendering to PNG",
+    "Word/Google Docs HTML cleanup",
+    "Copy as Markdown",
+    "Drag-and-drop file support",
+    "100% client-side privacy"
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "Codyssey"
+  }
+}
+</script>
+</body>
+</html>
