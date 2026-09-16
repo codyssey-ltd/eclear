@@ -67,9 +67,14 @@ Copied an article from a website and got tracking pixels, script tags, and site-
 | `Ctrl+C` | Copy cleaned content as rich text (HTML) |
 | `Ctrl+Shift+M` | Copy cleaned content as Markdown |
 | `Ctrl+Enter` | Re-clean current content and copy |
-| `←` / `→` | Decrease / increase editor width |
+| `Shift+Enter` | Insert a line break |
+| `←` / `→` | Decrease / increase editor width* |
 | `?` | Show keyboard shortcut help |
 | `Esc` | Close help / error overlay |
+
+\* Arrow keys adjust editor width whenever the editor is focused — caret
+navigation with `←`/`→` is intentionally traded for the paste → copy → done
+workflow. Use the `‹` `›` width buttons as an alternative.
 
 All shortcuts also have **clickable buttons** in the top bar for mouse users.
 

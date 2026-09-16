@@ -13,11 +13,11 @@
 <meta property="og:title" content="eclear — Rich Text Sanitizer & Markdown Converter">
 <meta property="og:description" content="Paste messy content from Word, Google Docs, VS Code, or dark themes. eclear strips junk markup and copies clean rich text in one keystroke. 100% client-side, no server.">
 <meta property="og:site_name" content="eclear">
-<meta property="og:url" content="https://github.com/codyssey-ltd/eclear">
+<meta property="og:url" content="https://eclear.codyssey.com/">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="eclear — Rich Text Sanitizer & Markdown Converter">
 <meta name="twitter:description" content="Paste. Copy. Done. — Clean rich text from dark themes, Word, and web pages in one keystroke. 100% client-side.">
-<link rel="canonical" href="https://codyssey-ltd.github.io/eclear/">
+<link rel="canonical" href="https://eclear.codyssey.com/">
 <style>
   /* Dark theme — default on page load */
   :root {
@@ -89,9 +89,11 @@
   .brand em { font-style: normal; color: var(--accent); }
   .shortcuts { display: flex; gap: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
   .shortcuts kbd { font-family: var(--mono); font-size: 0.65rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0.1em 0.4em; margin-right: 0.3rem; color: var(--text-dim); }
-  .shortcut-btn { display: inline-flex; align-items: center; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 5px; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; user-select: none; }
+  .shortcut-btn { display: inline-flex; align-items: center; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 5px; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; user-select: none; background: none; font: inherit; color: inherit; }
   .shortcut-btn:hover { background: var(--surface-2); border-color: var(--border); }
   .shortcut-btn:active { background: var(--accent-soft); }
+  .shortcut-btn:focus-visible { border-color: var(--border-focus); outline: none; }
+  .error-dot:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
   .editor { min-height: 300px; max-height: 60vh; padding: 1.5rem 1.75rem; outline: none; overflow-y: auto; font-size: 0.92rem; line-height: 1.7; color: var(--text); }
   .editor:empty::before { content: "Paste rich text here — it will be cleaned automatically"; color: var(--text-muted); pointer-events: none; }
@@ -133,7 +135,7 @@
   .char-count { font-size: 0.7rem; font-family: var(--mono); color: var(--text-muted); }
 
   /* Width controls — positioned by JS to align with status bar, fixed to viewport */
-  .width-controls { position: fixed; display: flex; align-items: center; gap: 0; z-index: 90; transform: translate(-50%, -50%); opacity: 0; transition: opacity 3s ease; }
+  .width-controls { position: fixed; display: flex; align-items: center; gap: 0; z-index: 90; transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.3s ease; }
   .width-controls.ready { opacity: 1; }
   .width-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; color: var(--text-dim); transition: all var(--transition); user-select: none; line-height: 1; padding: 0; font-family: var(--mono); }
   .width-btn:hover { border-color: var(--border-focus); color: var(--accent); background: var(--accent-soft); }
@@ -168,7 +170,7 @@
 
   /* Mermaid error indicator */
   @keyframes errorBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .error-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; cursor: pointer; animation: errorBlink 1s ease-in-out infinite; flex-shrink: 0; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+  .error-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; cursor: pointer; animation: errorBlink 1s ease-in-out infinite; flex-shrink: 0; box-shadow: 0 0 6px rgba(239,68,68,0.5); border: 0; padding: 0; }
   .error-dot:hover { box-shadow: 0 0 10px rgba(239,68,68,0.7); }
 
   /* Error popup overlay */
@@ -188,29 +190,29 @@
 </head>
 <body>
 
-<div class="app">
+<main class="app">
   <div class="palette">
     <div class="topbar">
       <div class="brand">e<em>clear</em></div>
       <div class="shortcuts">
-        <span class="shortcut-btn" id="btnCopy" title="Copy as rich text (Ctrl+C)"><kbd>⌘C</kbd>copy</span>
-        <span class="shortcut-btn" id="btnMd" title="Copy as Markdown (Ctrl+Shift+M)"><kbd>⌘⇧M</kbd>md</span>
-        <span class="shortcut-btn" id="btnCleanCopy" title="Re-clean and copy (Ctrl+Enter)"><kbd>⌘⏎</kbd>clean+copy</span>
-        <span class="shortcut-btn" id="btnHelp" title="Show keyboard shortcuts (?)"><kbd>?</kbd>help</span>
+        <button type="button" class="shortcut-btn" id="btnCopy" title="Copy as rich text (Ctrl+C)"><kbd>⌘C</kbd>copy</button>
+        <button type="button" class="shortcut-btn" id="btnMd" title="Copy as Markdown (Ctrl+Shift+M)"><kbd>⌘⇧M</kbd>md</button>
+        <button type="button" class="shortcut-btn" id="btnCleanCopy" title="Re-clean and copy (Ctrl+Enter)"><kbd>⌘⏎</kbd>clean+copy</button>
+        <button type="button" class="shortcut-btn" id="btnHelp" title="Show keyboard shortcuts (?)"><kbd>?</kbd>help</button>
       </div>
     </div>
-    <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+    <div class="editor" id="editor" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Paste rich text here — it will be cleaned automatically"></div>
     <div class="statusbar">
-      <div class="status-indicator" id="status">
+      <div class="status-indicator" id="status" aria-live="polite">
         <span class="status-dot"></span>
-        <span class="error-dot" id="errorDot" style="display:none;" title="Mermaid render errors — click for details"></span>
+        <button type="button" class="error-dot" id="errorDot" style="display:none;" title="Mermaid render errors — click for details" aria-label="Mermaid render errors — click for details"></button>
         <div class="toast" id="toast"><span class="toast-icon">✓</span> <span id="toast-text">Copied!</span></div>
         <span id="status-text">Ready — paste to begin</span>
       </div>
       <div class="char-count" id="charCount"><span id="wordCount">0 words</span> · <span id="charOnly">0 chars</span></div>
     </div>
   </div>
-</div>
+</main>
 
 <div class="width-controls">
   <button class="width-btn" id="widthDec" title="Decrease width (←)">&lt;</button>
@@ -218,9 +220,9 @@
   <button class="width-btn" id="widthInc" title="Increase width (→)">&gt;</button>
 </div>
 
-<div class="help-overlay" id="helpOverlay">
-  <div class="help-card">
-    <h3>Keyboard Shortcuts</h3>
+<div class="help-overlay" id="helpOverlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="help-card" id="helpCard" tabindex="-1">
+    <h3 id="helpTitle">Keyboard Shortcuts</h3>
     <table>
       <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste content</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy as rich text (HTML)</td></tr>
@@ -234,15 +236,19 @@
   </div>
 </div>
 
-<div class="error-overlay" id="errorOverlay">
-  <div class="error-card">
+<div class="error-overlay" id="errorOverlay" role="dialog" aria-modal="true" aria-labelledby="errorTitle">
+  <div class="error-card" id="errorCard" tabindex="-1">
     <h3 id="errorTitle">Mermaid Rendering Errors</h3>
     <div class="error-list" id="errorList"></div>
     <button class="error-dismiss" id="errorDismiss">Dismiss</button>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<!-- Pinned + SRI: regenerate hash on version bump via
+     curl -s https://cdn.jsdelivr.net/npm/mermaid@<ver>/dist/mermaid.min.js | openssl dgst -sha384 -binary | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"
+        integrity="sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2"
+        crossorigin="anonymous"></script>
 <script>
 "use strict";
 
@@ -310,6 +316,39 @@ const KEEP_ATTRS = {
 };
 function allowedAttrs(tag){ return KEEP_ATTRS[tag] || KEEP_ATTRS["*"]; }
 
+/* Filter a style attribute value down to KEEP_STYLES declarations only.
+   Single shared allowlist — used by both the sanitize pass and
+   formatTables so cell text-align survives consistently. */
+function filterStyleDecls(style) {
+  return style.split(";").filter(decl => {
+    const ci = decl.indexOf(":");
+    if (ci === -1) return false;
+    const prop = decl.slice(0, ci).trim().toLowerCase();
+    if (prop.startsWith("mso-")) return false;
+    return KEEP_STYLES.has(prop);
+  });
+}
+
+/* URL scheme allowlist — positive check (denylists are bypass-prone).
+   Browsers strip ASCII control chars and whitespace anywhere in a URL
+   before parsing its scheme, so normalize the same way first — a raw
+   prefix check is bypassed by e.g. "jav\tascript:...". Anything without
+   an explicit scheme (relative paths, fragments, queries) is allowed. */
+const SAFE_HREF_SCHEMES = new Set(["http", "https", "mailto", "tel"]);
+const SAFE_SRC_SCHEMES  = new Set(["http", "https", "blob"]);
+function isSafeUrl(raw, kind) {
+  if (!raw) return false;
+  const v = String(raw).replace(/[\u0000-\u0020]+/g, "").toLowerCase();
+  if (!v) return false;
+  // Fragment, path-relative, query-relative — never scriptable
+  if (v.startsWith("#") || v.startsWith("/") || v.startsWith(".") || v.startsWith("?")) return true;
+  // data:image/* on <img> is required — mermaid PNG output is a data URI
+  if (kind === "img" && v.startsWith("data:image/")) return true;
+  const m = v.match(/^([a-z][a-z0-9+.-]*):/);
+  if (!m) return true; // no scheme → relative URL
+  return (kind === "img" ? SAFE_SRC_SCHEMES : SAFE_HREF_SCHEMES).has(m[1]);
+}
+
 /* ════════════════════════════════════════════════════════════════
    SANITIZATION ENGINE
    ════════════════════════════════════════════════════════════════ */
@@ -350,14 +389,7 @@ function sanitizeHTML(html) {
 
     // Strip ALL inline styles except text-align (for table cells)
     if (el.hasAttribute("style")) {
-      const style = el.getAttribute("style");
-      const decls = style.split(";").filter(decl => {
-        const ci = decl.indexOf(":");
-        if (ci === -1) return false;
-        const prop = decl.slice(0, ci).trim().toLowerCase();
-        if (prop.startsWith("mso-")) return false;
-        return KEEP_STYLES.has(prop);
-      });
+      const decls = filterStyleDecls(el.getAttribute("style"));
       if (decls.length > 0) el.setAttribute("style", decls.join("; "));
       else el.removeAttribute("style");
     }
@@ -366,21 +398,12 @@ function sanitizeHTML(html) {
     const allowed = new Set(allowedAttrs(tag));
     for (const attr of Array.from(el.attributes)) {
       if (!allowed.has(attr.name)) el.removeAttribute(attr.name);
-      // Block javascript:/vbscript: URLs. Per the URL spec, browsers strip
-      // ASCII tab/newline/carriage-return characters anywhere in a URL
-      // before parsing its scheme — so a naive prefix check on the raw
-      // value can be bypassed with e.g. "jav\tascript:...". Strip all
-      // control/whitespace characters first to match real browser parsing.
-      if (attr.name === "href") {
-        const v = attr.value.replace(/[\u0000-\u0020]+/g, "").toLowerCase();
-        if (v.startsWith("javascript:") || v.startsWith("vbscript:"))
-          el.removeAttribute("href");
-      }
-      // Block data: URLs on img (potential XSS vector) — same bypass guard.
-      if (attr.name === "src") {
-        const v = attr.value.replace(/[\u0000-\u0020]+/g, "").toLowerCase();
-        if (v.startsWith("data:text/html")) el.removeAttribute("src");
-      }
+      // Positive scheme allowlist — blocks javascript:/vbscript:/data:
+      // on href and anything but http(s)/blob:/data:image/ on img src.
+      if (attr.name === "href" && !isSafeUrl(attr.value, "href"))
+        el.removeAttribute("href");
+      if (attr.name === "src" && !isSafeUrl(attr.value, "img"))
+        el.removeAttribute("src");
     }
 
     // Strip color/bgcolor/face attributes (from <font> tags before unwrapping)
@@ -437,10 +460,12 @@ function formatTables(doc) {
       orphanRows.forEach(row => tbody.appendChild(row));
     }
 
-    // Clean each cell
+    // Clean each cell — keep the sanitized text-align (KEEP_STYLES)
     table.querySelectorAll("td, th").forEach(cell => {
       cell.removeAttribute("width");
-      cell.removeAttribute("style");
+      const cellDecls = filterStyleDecls(cell.getAttribute("style") || "");
+      if (cellDecls.length > 0) cell.setAttribute("style", cellDecls.join("; "));
+      else cell.removeAttribute("style");
       cell.removeAttribute("class");
       cell.removeAttribute("bgcolor");
       cell.removeAttribute("valign");
@@ -559,10 +584,14 @@ function inlineMd(text) {
     return `\x00C${codes.length - 1}\x00`;
   });
 
-  // Images: ![alt](url)
-  r = r.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-  // Links: [text](url)
-  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // Images: ![alt](url) — drop on unsafe scheme (same allowlist as sanitizeHTML)
+  r = r.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(_, alt, url) {
+    return isSafeUrl(url, "img") ? '<img src="' + url + '" alt="' + alt + '">' : alt;
+  });
+  // Links: [text](url) — keep link text, drop the anchor on unsafe scheme
+  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, url) {
+    return isSafeUrl(url, "href") ? '<a href="' + url + '">' + text + '</a>' : text;
+  });
   // Bold
   r = r.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   r = r.replace(/__([^_]+)__/g, "<strong>$1</strong>");
@@ -578,10 +607,12 @@ function inlineMd(text) {
   return r;
 }
 
+// Reusable element — escapeHtml runs per line/segment; avoid allocating
+// a DOM node each call. Synchronous set→read, so sharing is safe.
+const escapeEl = document.createElement("div");
 function escapeHtml(text) {
-  const d = document.createElement("div");
-  d.textContent = text;
-  return d.innerHTML;
+  escapeEl.textContent = text;
+  return escapeEl.innerHTML;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -590,7 +621,9 @@ function escapeHtml(text) {
 
 var mermaidReady = false;
 if (typeof mermaid !== "undefined") {
-  mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+  // securityLevel "strict" — output is rasterized to PNG, so interactive
+  // diagram features (click links, HTML labels) are dead weight anyway.
+  mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
   mermaidReady = true;
 }
 
@@ -658,9 +691,15 @@ async function renderMermaidToPng(definition) {
 
     // SVG → canvas → PNG
     // Use data URI instead of blob URL to avoid canvas tainting
-    // Replace deprecated unescape() with manual UTF-8 encoding
+    // Replace deprecated unescape() with manual UTF-8 encoding.
+    // Chunked: String.fromCharCode.apply over the whole array throws
+    // RangeError (argument-list limit) on large SVGs.
     var svgBytes = new TextEncoder().encode(svgStr);
-    var svgB64 = btoa(String.fromCharCode.apply(null, svgBytes));
+    var svgBin = "";
+    for (var bi = 0; bi < svgBytes.length; bi += 0x8000) {
+      svgBin += String.fromCharCode.apply(null, svgBytes.subarray(bi, bi + 0x8000));
+    }
+    var svgB64 = btoa(svgBin);
     var svgDataUri = "data:image/svg+xml;base64," + svgB64;
     var canvas = document.createElement("canvas");
     canvas.width = cw;
@@ -1073,7 +1112,10 @@ widthInc.addEventListener("click", () => applyWidth(currentWidth + WIDTH_STEP));
 widthDec.addEventListener("click", () => applyWidth(currentWidth - WIDTH_STEP));
 
 // Position once after palette fadeIn completes, then fade in
+var widthControlsInit = false;
 function initWidthControls() {
+  if (widthControlsInit) return; // animationend + timeout fallback — run once
+  widthControlsInit = true;
   positionWidthControls();
 }
 palette.addEventListener("animationend", initWidthControls, { once: true });
@@ -1204,6 +1246,10 @@ document.addEventListener("paste", function(e) {
 
 /* ── Drag-and-drop file support ─────────────────────────────── */
 function handleFileDrop(e) {
+  // Guard against double-processing: a drop on the editor fires the
+  // editor listener, then bubbles to the document listener — without
+  // this check the file would be processed twice.
+  if (e.defaultPrevented) return;
   e.preventDefault();
   if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
     var file = e.dataTransfer.files[0];
@@ -1228,7 +1274,8 @@ document.addEventListener("drop", handleFileDrop);
 
 /* ── Enter to clean (fallback if paste detection fails) ──────── */
 editor.addEventListener("keydown", function(e) {
-  if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+  // Shift+Enter passes through — inserts a line break like a normal editor
+  if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
     e.preventDefault();
     if (editor.innerHTML && editor.innerHTML !== "<br>") {
       cleanAndDisplay(editor.innerHTML);
@@ -1322,7 +1369,9 @@ document.addEventListener("keydown", function(e) {
     return;
   }
 
-  // Arrow left/right (no modifier) — adjust width when editor is focused
+  // Arrow left/right (no modifier) — adjust width when editor is focused.
+  // NOTE: this intentionally sacrifices caret navigation inside the editor —
+  // paste-only workflow, width buttons remain the alternative (user decision).
   if (!mod && document.activeElement === editor) {
     if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -1395,6 +1444,7 @@ document.getElementById("btnCleanCopy").addEventListener("click", function() {
 
 document.getElementById("btnHelp").addEventListener("click", function() {
   document.getElementById("helpOverlay").classList.add("show");
+  document.getElementById("helpCard").focus();
 });
 
 /* ── Copy cleaned content to clipboard ───────────────────────────────────
@@ -1587,10 +1637,12 @@ document.addEventListener("keydown", function(e) {
   if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();
     helpOverlay.classList.add("show");
+    document.getElementById("helpCard").focus();
   }
   if (e.key === "Escape") {
     helpOverlay.classList.remove("show");
     errorOverlay.classList.remove("show");
+    editor.focus();
   }
 });
 
@@ -1626,17 +1678,20 @@ errorDot.addEventListener("click", function() {
     errorList.appendChild(item);
   }
   errorOverlay.classList.add("show");
+  document.getElementById("errorCard").focus();
 });
 
 errorDismiss.addEventListener("click", function() {
   errorOverlay.classList.remove("show");
   errorDot.style.display = "none";
+  editor.focus();
 });
 
 errorOverlay.addEventListener("click", function(e) {
   if (e.target === errorOverlay) {
     errorOverlay.classList.remove("show");
     errorDot.style.display = "none";
+    editor.focus();
   }
 });
 
