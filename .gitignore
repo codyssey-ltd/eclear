@@ -15,3 +15,10 @@
 !.gitea/workflows/
 .gitea/workflows/*
 !.gitea/workflows/deploy-pages.yml
+
+# Keep closure manifests only (atom payloads + other task artifacts stay ignored)
+!tasks/
+!tasks/issues/
+!tasks/issues/*/
+tasks/issues/*/*
+!tasks/issues/*/atoms-manifest.json
