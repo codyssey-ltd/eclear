@@ -9,3 +9,9 @@
 
 # Keep .gitignore itself
 !.gitignore
+
+# Keep only the Pages deploy workflow (local harness workflows stay ignored)
+!.gitea/
+!.gitea/workflows/
+.gitea/workflows/*
+!.gitea/workflows/deploy-pages.yml

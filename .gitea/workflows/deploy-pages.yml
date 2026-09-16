@@ -1,0 +1,42 @@
+name: deploy-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "html/**"
+      - ".gitea/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    container: node:22-bookworm
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy html/ to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          # No package.json in this repo — install a pinned wrangler globally.
+          npm install -g wrangler@4.132.0 --no-fund --no-audit
+          wrangler pages deploy html --project-name eclear --branch main
+      - name: Post-deploy smoke test
+        run: |
+          set -e
+          # pages.dev alias propagates within seconds; retry to absorb lag.
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://eclear.pages.dev/)
+            echo "attempt $i: $STATUS (expect 200)"
+            [ "$STATUS" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "::error::pages.dev did not return 200 after 5 attempts"
+          exit 1
